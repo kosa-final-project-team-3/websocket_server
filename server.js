@@ -2,14 +2,22 @@ const express = require('express');
 const cors = require('cors');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
+const textToSpeech = require('@google-cloud/text-to-speech');
+const fs = require('fs');
+const util = require('util');
 const app = express();
 const PORT = 8083;
 
 app.use(cors());
+app.use(express.json());
 
 // const server = app.listen(PORT, () => {
 //     console.log(`Server is running on http://localhost:${PORT}`);
 // });
+
+const ttsClient = new textToSpeech.TextToSpeechClient({
+    keyFilename: 'kosafinalproject-3693aacb3699.json',
+});
 
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on http://0.0.0.0:${PORT}`);
@@ -90,4 +98,26 @@ wss.on('connection', (ws) => {
             }
         }
     });
+});
+
+app.post('/api/tts', async (req, res) => {
+const text = req.body.text;
+
+const request = {
+    input: { text },
+    voice: { languageCode: 'ko-KR', ssmlGender: 'MALE' },
+    audioConfig: { audioEncoding: 'MP3' },
+};
+
+try {
+    const [response] = await ttsClient.synthesizeSpeech(request);
+    const audioContent = response.audioContent;
+
+    // Content-Type을 audio/mp3로 설정하고 바이너리 데이터를 직접 전송
+    res.set('Content-Type', 'audio/mp3');
+    res.send(audioContent);
+} catch (error) {
+    console.error('Error with TTS API:', error);
+    res.status(500).send('Error generating audio');
+}
 });
